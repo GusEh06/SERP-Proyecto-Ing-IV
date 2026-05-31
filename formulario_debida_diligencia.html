@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formulario de Debida Diligencia de Proveedores</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #EEF2F7;
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+    color: #1a1a2e;
+  }
+  .page-wrapper { max-width: 800px; margin: 0 auto; }
+  .wiz-title {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 600;
+    color: #185FA5;
+    margin-bottom: 4px;
+  }
+  .wiz-sub {
+    text-align: center;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 24px;
+  }
+
+  /* STEPS BAR */
+  .steps-bar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    margin-bottom: 24px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .step-item { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 90px; }
+  .step-circle {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 600;
+    border: 2px solid #CBD5E1;
+    background: #fff; color: #94A3B8;
+    transition: all .25s;
+  }
+  .step-circle.done { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+  .step-circle.active { background: #185FA5; border-color: #185FA5; color: #fff; box-shadow: 0 0 0 4px rgba(24,95,165,.15); }
+  .step-label { font-size: 10px; color: #94A3B8; text-align: center; line-height: 1.3; white-space: pre-line; }
+  .step-label.active { color: #185FA5; font-weight: 600; }
+  .step-line { flex: 1; height: 2px; background: #CBD5E1; margin-top: 16px; min-width: 12px; max-width: 36px; transition: background .25s; }
+  .step-line.done { background: #1D9E75; }
+
+  /* WIZARD CARD */
+  .wizard-card {
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  }
+
+  /* SECTION HEADER */
+  .section-header {
+    padding: 16px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    color: #fff;
+  }
+  .sh-left { display: flex; align-items: center; gap: 12px; }
+  .sh-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(255,255,255,.2);
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .sh-title { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+  .sh-sub { font-size: 11px; opacity: .8; margin-top: 2px; }
+  .sh-pct { font-size: 16px; font-weight: 700; }
+  .progress-bar { height: 4px; background: rgba(255,255,255,.25); }
+  .progress-fill { height: 100%; transition: width .4s ease; }
+
+  /* FORM BODY */
+  .form-body { padding: 22px 24px; }
+  .field-group { margin-bottom: 18px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media(max-width:520px){ .field-row { grid-template-columns: 1fr; } }
+
+  label {
+    display: block; font-size: 13px; font-weight: 600;
+    color: #374151; margin-bottom: 6px;
+  }
+  label .req { color: #E24B4A; margin-left: 2px; }
+
+  input[type=text], input[type=date], select, textarea {
+    width: 100%; padding: 9px 12px;
+    font-size: 13px; font-family: inherit;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 8px;
+    background: #FAFBFC;
+    color: #1a1a2e;
+    outline: none;
+    transition: border .15s, box-shadow .15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: #185FA5;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(24,95,165,.1);
+  }
+  input.error, select.error, textarea.error {
+    border-color: #E24B4A;
+    background: #FFF5F5;
+  }
+  textarea { resize: vertical; min-height: 90px; line-height: 1.5; }
+
+  .field-ref {
+    display: inline-block; margin-top: 4px;
+    font-size: 10px; color: #185FA5;
+    background: #EBF4FF; padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .field-ref.warn { color: #BA7517; background: #FAEEDA; }
+
+  /* ALERT */
+  .alert-box {
+    display: none; margin: 0 24px 16px;
+    background: #FEF2F2; border: 1.5px solid #FECACA;
+    border-radius: 10px; padding: 12px 16px;
+    font-size: 12px; color: #B91C1C;
+  }
+  .alert-box.show { display: block; }
+  .alert-box strong { display: block; margin-bottom: 4px; }
+  .alert-box ul { padding-left: 16px; }
+  .alert-box ul li { padding: 2px 0; }
+
+  /* RADIO / RADIO GROUPS */
+  .radio-group { display: flex; gap: 20px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+  .radio-opt { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; color: #374151; }
+  .radio-opt input[type=radio] { width: 16px; height: 16px; accent-color: #185FA5; cursor: pointer; }
+
+  /* LIST CARDS */
+  .list-card {
+    padding: 14px 16px; border: 1.5px solid #E2E8F0;
+    border-radius: 10px; margin-bottom: 10px;
+    background: #FAFBFC; transition: background .2s, border .2s;
+  }
+  .list-card.green-bg { background: #F0FFF7; border-color: #6EE7B7; }
+  .list-card.red-bg { background: #FFF5F5; border-color: #FCA5A5; }
+  .list-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+
+  /* CHECK ITEMS */
+  .check-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 10px; background: #FAFBFC;
+    cursor: pointer; margin-bottom: 8px;
+    transition: background .15s, border .15s;
+  }
+  .check-item:hover { background: #F0F9FF; border-color: #BAD4F4; }
+  .check-item.checked { background: #F0FFF7; border-color: #6EE7B7; }
+  .check-item input[type=checkbox] { width: 17px; height: 17px; accent-color: #1D9E75; cursor: pointer; margin-top: 2px; flex-shrink: 0; }
+  .ci-label { font-size: 13px; color: #374151; font-weight: 500; }
+
+  /* UPLOAD */
+  .upload-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 6px; padding: 4px 12px;
+    font-size: 11px; border-radius: 6px;
+    border: 1.5px solid #CBD5E1;
+    background: #fff; color: #64748B;
+    cursor: pointer; font-family: inherit;
+    transition: background .15s;
+  }
+  .upload-btn:hover { background: #F1F5F9; }
+  .uploaded-file {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 6px; padding: 4px 10px;
+    background: #F0FFF7; border: 1px solid #6EE7B7;
+    border-radius: 6px; font-size: 11px; color: #065F46;
+  }
+  .uploaded-file .rm { cursor: pointer; color: #B91C1C; font-weight: 700; margin-left: 4px; }
+
+  /* GRID CARDS (step 4 top row) */
+  .two-col-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  @media(max-width:520px){ .two-col-cards { grid-template-columns: 1fr; } }
+
+  /* SUMMARY */
+  .summary-header {
+    font-size: 10px; font-weight: 700; color: #94A3B8;
+    letter-spacing: 1px; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .sum-card {
+    background: #F8FAFC; border-radius: 10px;
+    padding: 12px; text-align: center;
+    border: 1px solid #E2E8F0;
+  }
+  .sum-num { font-size: 24px; font-weight: 700; }
+  .sum-label { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+
+  /* DECLARATION */
+  .decl-box {
+    background: #EBF4FF; border-left: 4px solid #185FA5;
+    border-radius: 0 10px 10px 0;
+    padding: 14px 16px; font-size: 13px; color: #1E3A5F;
+    line-height: 1.6; margin-bottom: 18px;
+  }
+
+  /* SIGN BOX */
+  .sign-box {
+    border: 2px dashed #CBD5E1; border-radius: 10px;
+    padding: 22px; text-align: center;
+    cursor: pointer; color: #94A3B8; font-size: 13px;
+    transition: all .2s; user-select: none;
+    min-height: 80px; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .sign-box:hover { border-color: #185FA5; color: #185FA5; background: #F0F9FF; }
+  .sign-box.signed { border-color: #1D9E75; background: #F0FFF7; color: #065F46; font-weight: 600; }
+
+  /* NAV BAR */
+  .nav-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px; border-top: 1.5px solid #F1F5F9;
+  }
+  .dots { display: flex; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #CBD5E1; transition: background .2s; }
+  .dot.done { background: #1D9E75; }
+  .dot.active { background: #185FA5; }
+
+  .btn {
+    padding: 9px 22px; border-radius: 9px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 1.5px solid #CBD5E1; background: #fff; color: #374151;
+    transition: all .15s; font-family: inherit;
+  }
+  .btn:hover { background: #F1F5F9; }
+  .btn-primary { background: #185FA5; border-color: #185FA5; color: #fff; }
+  .btn-primary:hover { background: #0C447C; }
+  .btn-success { background: #1D9E75; border-color: #1D9E75; color: #fff; }
+  .btn-success:hover { background: #0F6E56; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* SUCCESS */
+  .success-screen { text-align: center; padding: 36px 24px; }
+  .success-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: #F0FFF7; display: flex;
+    align-items: center; justify-content: center;
+    margin: 0 auto 16px; font-size: 28px;
+    border: 2px solid #6EE7B7;
+  }
+  .exp-card {
+    background: #F8FAFC; border: 1.5px solid #E2E8F0;
+    border-radius: 12px; padding: 16px 20px;
+    text-align: left; max-width: 320px; margin: 16px auto;
+    font-size: 13px;
+  }
+  .exp-row { display: flex; gap: 10px; align-items: center; padding: 5px 0; color: #374151; }
+
+  .section-note {
+    font-size: 12px; color: #94A3B8; font-style: italic; margin-bottom: 16px;
+  }
+
+  /* footer */
+  .wiz-footer {
+    text-align: center; margin-top: 20px;
+    font-size: 11px; color: #94A3B8;
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="wiz-title">Formulario de Debida Diligencia de Proveedores</div>
+  <div class="wiz-sub">Ley 23 de 2015 &amp; Ley 22 de 2006 · República de Panamá</div>
+
+  <div class="steps-bar" id="stepsBar"></div>
+
+  <div class="wizard-card">
+    <div id="alertBox" class="alert-box"></div>
+    <div id="wizardContent"></div>
+    <div class="nav-bar" id="navBar">
+      <button class="btn" id="btnPrev" onclick="prevStep()">&#8249; Anterior</button>
+      <div class="dots" id="dotBar"></div>
+      <button class="btn btn-primary" id="btnNext" onclick="nextStep()">Siguiente &#8250;</button>
+    </div>
+  </div>
+
+  <div class="wiz-footer">Formulario de Debida Diligencia de Proveedores · Ley 23/2015 &amp; Ley 22/2006 · República de Panamá</div>
+</div>
+
+<script>
+const STEPS=[
+  {short:"Ident. Proveedor"},
+  {short:"Actividad Econ."},
+  {short:"Listas Restrict."},
+  {short:"Eval. de Riesgo"},
+  {short:"Documentos"},
+  {short:"Firma Analista"}
+];
+const HEADERS=[
+  {title:"SECCIÓN 1 — IDENTIFICACIÓN DEL PROVEEDOR",sub:"Paso 1 de 6",pct:17,color:"#185FA5",pfill:"rgba(255,255,255,.85)",icon:"🏢"},
+  {title:"SECCIÓN 2 — ACTIVIDAD ECONÓMICA",sub:"Paso 2 de 6",pct:33,color:"#185FA5",pfill:"rgba(255,255,255,.85)",icon:"📊"},
+  {title:"SECCIÓN 3 — LISTAS RESTRICTIVAS",sub:"Paso 3 de 6",pct:50,color:"#2C2C2A",pfill:"rgba(255,255,255,.6)",icon:"🔍"},
+  {title:"SECCIÓN 4 — EVALUACIÓN DE RIESGO",sub:"Paso 4 de 6",pct:67,color:"#BA7517",pfill:"rgba(255,255,255,.7)",icon:"⚠️"},
+  {title:"SECCIÓN 5 — DOCUMENTOS REQUERIDOS",sub:"Paso 5 de 6",pct:83,color:"#0F6E56",pfill:"rgba(255,255,255,.85)",icon:"📄"},
+  {title:"SECCIÓN 6 — FIRMA DEL ANALISTA",sub:"Paso 6 de 6",pct:100,color:"#2C2C2A",pfill:"rgba(255,255,255,.6)",icon:"✍️"}
+];
+let cur=0;
+let data={
+  razonSocial:"",ruc:"",tipoPers:"",pais:"",fechaVer:"",repLegal:"",cedula:"",
+  actividad:"",ciiu:"",descripcion:"",beneficiario:"",
+  listas:{ofac:"",onu:"",interpol:"",inhabilitados:""},
+  pep:"",gafi:"",monto:"",nivelRiesgo:"",observaciones:"",
+  docs:{cert:false,ruc2:false,ced2:false,benef:false,estados:false},
+  docsFiles:{cert:null,ruc2:null,ced2:null,benef:null,estados:null},
+  analista:"",fechaAnalisis:"",cargo:"",firmado:false
+};
+
+function renderSteps(){
+  const b=document.getElementById("stepsBar");
+  b.innerHTML="";
+  STEPS.forEach((s,i)=>{
+    if(i>0){
+      const ln=document.createElement("div");
+      ln.className="step-line"+(i<=cur?" done":"");
+      b.appendChild(ln);
+    }
+    const it=document.createElement("div");
+    it.className="step-item";
+    const c=document.createElement("div");
+    c.className="step-circle"+(i<cur?" done":i===cur?" active":"");
+    c.textContent=i<cur?"✓":(i+1);
+    const l=document.createElement("div");
+    l.className="step-label"+(i===cur?" active":"");
+    l.textContent=s.short;
+    it.appendChild(c);it.appendChild(l);
+    b.appendChild(it);
+  });
+}
+function renderDots(){
+  const d=document.getElementById("dotBar");
+  d.innerHTML="";
+  STEPS.forEach((_,i)=>{
+    const dot=document.createElement("div");
+    dot.className="dot"+(i<cur?" done":i===cur?" active":"");
+    d.appendChild(dot);
+  });
+}
+function renderNav(){
+  document.getElementById("btnPrev").style.visibility=cur===0?"hidden":"visible";
+  const n=document.getElementById("btnNext");
+  if(cur===5){n.textContent="Enviar formulario ✓";n.className="btn btn-success";}
+  else{n.textContent="Siguiente ›";n.className="btn btn-primary";}
+}
+function sectionHeader(i){
+  const h=HEADERS[i];
+  return `<div class="section-header" style="background:${h.color}">
+    <div class="sh-left">
+      <div class="sh-icon">${h.icon}</div>
+      <div><div class="sh-title">${h.title}</div><div class="sh-sub">${h.sub}</div></div>
+    </div>
+    <div class="sh-pct">${h.pct}%</div>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" style="width:${h.pct}%;background:${h.pfill}"></div></div>`;
+}
+
+// STEP 1
+function renderStep1(){
+  return sectionHeader(0)+`<div class="form-body">
+  <div class="field-group">
+    <label>Razón social o nombre legal <span class="req">*</span></label>
+    <input type="text" id="razonSocial" placeholder="Nombre completo según registro mercantil" value="${e(data.razonSocial)}"
+      oninput="data.razonSocial=this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9 .,'&\\-]/g,'')">
+    <span class="field-ref">Art. 18 Ley 23/2015 — identificación del tercero</span>
+  </div>
+  <div class="field-row">
+    <div class="field-group">
+      <label>RUC / N.° de identificación fiscal <span class="req">*</span></label>
+      <input type="text" id="ruc" placeholder="Ej. 8-123-456" value="${e(data.ruc)}"
+        oninput="data.ruc=this.value.replace(/[^0-9A-Za-z\\-]/g,'')">
+      <span class="field-ref">Art. 18 Ley 23/2015 — verificación identidad legal</span>
+    </div>
+    <div class="field-group">
+      <label>Tipo de persona <span class="req">*</span></label>
+      <select id="tipoPers" onchange="data.tipoPers=this.value">
+        <option value="">Seleccionar...</option>
+        <option value="natural" ${data.tipoPers==="natural"?"selected":""}>Persona natural</option>
+        <option value="juridica" ${data.tipoPers==="juridica"?"selected":""}>Persona jurídica</option>
+        <option value="extranjera" ${data.tipoPers==="extranjera"?"selected":""}>Empresa extranjera</option>
+      </select>
+      <span class="field-ref">Art. 3(4) Ley 23/2015 — clasificación del sujeto</span>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field-group">
+      <label>País de constitución / origen <span class="req">*</span></label>
+      <select id="pais" onchange="data.pais=this.value">
+        <option value="">Seleccionar...</option>
+        <option value="PA" ${data.pais==="PA"?"selected":""}>Panamá</option>
+        <option value="CO" ${data.pais==="CO"?"selected":""}>Colombia</option>
+        <option value="US" ${data.pais==="US"?"selected":""}>Estados Unidos</option>
+        <option value="MX" ${data.pais==="MX"?"selected":""}>México</option>
+        <option value="ES" ${data.pais==="ES"?"selected":""}>España</option>
+        <option value="otro" ${data.pais==="otro"?"selected":""}>Otro</option>
+      </select>
+      <span class="field-ref">Art. 18 Ley 23/2015 — riesgo geográfico</span>
+    </div>
+    <div class="field-group">
+      <label>Fecha de verificación <span class="req">*</span></label>
+      <input type="date" id="fechaVer" value="${data.fechaVer}" onchange="data.fechaVer=this.value">
+      <span class="field-ref">Art. 18 Ley 23/2015</span>
+    </div>
+  </div>
+  <div class="field-group">
+    <label>Representante legal <span class="req">*</span></label>
+    <input type="text" id="repLegal" placeholder="Nombre completo del representante" value="${e(data.repLegal)}"
+      oninput="data.repLegal=this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ .\\-]/g,'')">
+    <span class="field-ref">Art. 19 Ley 23/2015 — identificación del responsable</span>
+  </div>
+  <div class="field-group">
+    <label>N.° de cédula / pasaporte del representante <span class="req">*</span></label>
+    <input type="text" id="cedula" placeholder="Documento de identidad vigente" value="${e(data.cedula)}"
+      oninput="data.cedula=this.value.replace(/[^0-9A-Za-z\\-]/g,'')">
+    <span class="field-ref">Art. 18 Ley 23/2015 — verificación de identidad</span>
+  </div>
+  </div>`;
+}
+
+// STEP 2
+function renderStep2(){
+  return sectionHeader(1)+`<div class="form-body">
+  <div class="field-group">
+    <label>Actividad económica principal <span class="req">*</span></label>
+    <select id="actividad" onchange="data.actividad=this.value">
+      <option value="">Seleccionar...</option>
+      <option value="comercio" ${data.actividad==="comercio"?"selected":""}>Comercio al por mayor y menor</option>
+      <option value="construccion" ${data.actividad==="construccion"?"selected":""}>Construcción</option>
+      <option value="servicios" ${data.actividad==="servicios"?"selected":""}>Servicios profesionales</option>
+      <option value="tecnologia" ${data.actividad==="tecnologia"?"selected":""}>Tecnología e informática</option>
+      <option value="salud" ${data.actividad==="salud"?"selected":""}>Salud y farmacéutica</option>
+      <option value="finanzas" ${data.actividad==="finanzas"?"selected":""}>Servicios financieros</option>
+      <option value="transporte" ${data.actividad==="transporte"?"selected":""}>Transporte y logística</option>
+      <option value="otro" ${data.actividad==="otro"?"selected":""}>Otro</option>
+    </select>
+    <span class="field-ref">Art. 22 Ley 23/2015 — conocimiento de la actividad</span>
+  </div>
+  <div class="field-group">
+    <label>Código CIIU (si aplica)</label>
+    <input type="text" id="ciiu" placeholder="Ej. 6201" value="${e(data.ciiu)}"
+      oninput="data.ciiu=this.value.replace(/[^0-9]/g,'')" maxlength="6">
+    <span class="field-ref">Art. 22 Ley 23/2015 — clasificación económica</span>
+  </div>
+  <div class="field-group">
+    <label>Descripción del bien o servicio que provee <span class="req">*</span></label>
+    <textarea id="descripcion" placeholder="Describa brevemente el objeto del contrato o servicio que prestará..."
+      oninput="data.descripcion=this.value">${e(data.descripcion)}</textarea>
+    <span class="field-ref">Art. 22 Ley 23/2015 &amp; Art. 22 Ley 22/2006 — justificación del vínculo comercial</span>
+  </div>
+  <div class="field-group">
+    <label>Beneficiario final (dueño real de la empresa) <span class="req">*</span></label>
+    <input type="text" id="beneficiario" placeholder="Nombre de la persona natural con control o beneficio final"
+      value="${e(data.beneficiario)}"
+      oninput="data.beneficiario=this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ .\\-]/g,'')">
+    <span class="field-ref">Art. 24 Ley 23/2015 — identificación del beneficiario final</span>
+  </div>
+  </div>`;
+}
+
+// STEP 3
+function renderStep3(){
+  const lists=[
+    {key:"ofac",label:"Lista OFAC (Oficina de Control de Activos Extranjeros — EE.UU.)",ref:"Art. 31 Ley 23/2015"},
+    {key:"onu",label:"Lista de sanciones del Consejo de Seguridad de la ONU",ref:"Art. 21 Ley 23/2015"},
+    {key:"interpol",label:"Base de datos de Interpol / antecedentes internacionales",ref:"Art. 19 Ley 23/2015"},
+    {key:"inhabilitados",label:"Registro de Inhabilitados de Panamá Compra",ref:"Art. 36 Ley 22/2006"}
+  ];
+  let html=sectionHeader(2)+`<div class="form-body"><p class="section-note">Consulte cada lista y registre el resultado obtenido.</p>`;
+  lists.forEach(l=>{
+    const v=data.listas[l.key];
+    const cls=v==="no"?"green-bg":v==="si"?"red-bg":"";
+    html+=`<div class="list-card ${cls}">
+      <div class="list-title">${l.label}</div>
+      <div class="radio-group">
+        <label class="radio-opt"><input type="radio" name="lista_${l.key}" value="no" ${v==="no"?"checked":""}
+          onchange="data.listas['${l.key}']='no';renderCurrent()"> No aparece en lista</label>
+        <label class="radio-opt"><input type="radio" name="lista_${l.key}" value="si" ${v==="si"?"checked":""}
+          onchange="data.listas['${l.key}']='si';renderCurrent()"> Aparece / Coincidencia</label>
+      </div>
+      <span class="field-ref">${l.ref}</span>
+    </div>`;
+  });
+  return html+`</div>`;
+}
+
+// STEP 4
+function renderStep4(){
+  return sectionHeader(3)+`<div class="form-body">
+  <div class="two-col-cards">
+    <div class="list-card">
+      <div class="list-title">¿Opera en país de alto riesgo según GAFI?</div>
+      <div class="radio-group">
+        <label class="radio-opt"><input type="radio" name="gafi" value="si" ${data.gafi==="si"?"checked":""} onchange="data.gafi='si'"> Sí</label>
+        <label class="radio-opt"><input type="radio" name="gafi" value="no" ${data.gafi==="no"?"checked":""} onchange="data.gafi='no'"> No</label>
+      </div>
+      <span class="field-ref">Art. 19 Ley 23/2015 — riesgo geográfico</span>
+    </div>
+    <div class="list-card">
+      <div class="list-title">¿El proveedor es Persona Expuesta Políticamente (PEP)?</div>
+      <div class="radio-group">
+        <label class="radio-opt"><input type="radio" name="pep" value="si" ${data.pep==="si"?"checked":""} onchange="data.pep='si'"> Sí</label>
+        <label class="radio-opt"><input type="radio" name="pep" value="no" ${data.pep==="no"?"checked":""} onchange="data.pep='no'"> No</label>
+      </div>
+      <span class="field-ref">Art. 22 Ley 23/2015 — factores de alto riesgo</span>
+    </div>
+  </div>
+  <div class="field-group">
+    <label>Monto estimado anual del contrato (USD) <span class="req">*</span></label>
+    <select id="monto" onchange="data.monto=this.value">
+      <option value="">Seleccionar rango...</option>
+      <option value="0-5k" ${data.monto==="0-5k"?"selected":""}>Menos de $5,000</option>
+      <option value="5k-25k" ${data.monto==="5k-25k"?"selected":""}>$5,000 – $25,000</option>
+      <option value="25k-100k" ${data.monto==="25k-100k"?"selected":""}>$25,000 – $100,000</option>
+      <option value="100k-500k" ${data.monto==="100k-500k"?"selected":""}>$100,000 – $500,000</option>
+      <option value="+500k" ${data.monto==="+500k"?"selected":""}>Más de $500,000</option>
+    </select>
+    <span class="field-ref">Art. 18 Ley 23/2015 &amp; Art. 22 Ley 22/2006 — proporcionalidad del riesgo</span>
+  </div>
+  <div class="field-group">
+    <label>Nivel de riesgo calculado <span class="req">*</span></label>
+    <select id="nivelRiesgo" onchange="data.nivelRiesgo=this.value">
+      <option value="">Seleccionar nivel...</option>
+      <option value="bajo" ${data.nivelRiesgo==="bajo"?"selected":""}>Bajo</option>
+      <option value="medio" ${data.nivelRiesgo==="medio"?"selected":""}>Medio</option>
+      <option value="alto" ${data.nivelRiesgo==="alto"?"selected":""}>Alto</option>
+      <option value="muy_alto" ${data.nivelRiesgo==="muy_alto"?"selected":""}>Muy alto</option>
+    </select>
+    <span class="field-ref">Art. 18 Ley 23/2015 — asignación de nivel de riesgo</span>
+  </div>
+  <div class="field-group">
+    <label>Observaciones del analista de riesgo</label>
+    <textarea id="observaciones" placeholder="Notas adicionales, documentos adjuntos, justificación de la decisión..."
+      oninput="data.observaciones=this.value">${e(data.observaciones)}</textarea>
+    <span class="field-ref">Art. 30 Ley 23/2015 — obligación de reporte y trazabilidad</span>
+  </div>
+  </div>`;
+}
+
+// STEP 5
+const DOCS=[
+  {key:"cert",label:"Certificado de existencia y representación legal (vigente)",ref:"Art. 18 Ley 23/2015 — Ley 32/1927"},
+  {key:"ruc2",label:"RUC activo emitido por la DGI",ref:"Art. 18 Ley 23/2015"},
+  {key:"ced2",label:"Copia de cédula / pasaporte del representante legal",ref:"Art. 18 Ley 23/2015 — verificación de identidad"},
+  {key:"benef",label:"Declaración de beneficiario final firmada",ref:"Art. 24 Ley 23/2015"},
+  {key:"estados",label:"Estados financieros o declaración de renta (último año)",ref:"Art. 2(4) Ley 23/2015 — solvencia económica"}
+];
+function renderStep5(){
+  let html=sectionHeader(4)+`<div class="form-body"><p class="section-note">Marque los documentos recibidos y verificados. Puede adjuntar el archivo correspondiente.</p>`;
+  DOCS.forEach(d=>{
+    const chk=data.docs[d.key];
+    const f=data.docsFiles[d.key];
+    html+=`<div class="check-item ${chk?"checked":""}" id="ci_${d.key}" onclick="toggleDoc('${d.key}')">
+      <input type="checkbox" ${chk?"checked":""} onclick="event.stopPropagation();toggleDoc('${d.key}')">
+      <div style="flex:1">
+        <div class="ci-label">${d.label}</div>
+        <span class="field-ref">${d.ref}</span>
+        <div onclick="event.stopPropagation()">
+          ${f
+            ?`<div class="uploaded-file">📎 ${f} <span class="rm" onclick="removeFile('${d.key}')">✕</span></div>`
+            :`<input type="file" id="file_${d.key}" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.docx"
+               onchange="attachFile('${d.key}',this)">
+             <button class="upload-btn" onclick="document.getElementById('file_${d.key}').click()">📎 Adjuntar documento</button>`
+          }
+        </div>
+      </div>
+    </div>`;
+  });
+  return html+`</div>`;
+}
+function toggleDoc(k){data.docs[k]=!data.docs[k];renderCurrent();}
+function attachFile(k,inp){if(inp.files&&inp.files[0]){data.docsFiles[k]=inp.files[0].name;data.docs[k]=true;renderCurrent();}}
+function removeFile(k){data.docsFiles[k]=null;renderCurrent();}
+
+// STEP 6
+function renderStep6(){
+  const docsOk=Object.values(data.docs).filter(Boolean).length;
+  const lOk=Object.values(data.listas).filter(v=>v!=="").length;
+  return sectionHeader(5)+`<div class="form-body">
+  <div class="decl-box">Declaro que la información contenida en este formulario es verídica y que se realizó la debida diligencia conforme a la <strong>Ley 23 de 2015</strong> y la <strong>Ley 22 de 2006</strong> de la República de Panamá, así como los estándares del <strong>GAFI/FATF</strong>.</div>
+  <div style="background:#F8FAFC;border-radius:12px;padding:16px 18px;border:1px solid #E2E8F0;margin-bottom:18px">
+    <div class="summary-header">Resumen del formulario</div>
+    <div class="summary-grid">
+      <div class="sum-card"><div class="sum-num" style="color:#1D9E75">5/5</div><div class="sum-label">Secciones</div></div>
+      <div class="sum-card"><div class="sum-num" style="color:#185FA5">${lOk}/4</div><div class="sum-label">Listas consultadas</div></div>
+      <div class="sum-card"><div class="sum-num" style="color:${docsOk===5?"#1D9E75":"#BA7517"}">${docsOk}/5</div><div class="sum-label">Docs verificados</div></div>
+    </div>
+  </div>
+  <div class="field-row">
+    <div class="field-group">
+      <label>Nombre del analista responsable <span class="req">*</span></label>
+      <input type="text" id="analista" placeholder="Nombre completo" value="${e(data.analista)}"
+        oninput="data.analista=this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ .\\-]/g,'')">
+    </div>
+    <div class="field-group">
+      <label>Fecha del análisis <span class="req">*</span></label>
+      <input type="date" id="fechaAnalisis" value="${data.fechaAnalisis}" onchange="data.fechaAnalisis=this.value">
+    </div>
+  </div>
+  <div class="field-group">
+    <label>Cargo del analista <span class="req">*</span></label>
+    <input type="text" id="cargo" placeholder="Ej. Oficial de Cumplimiento" value="${e(data.cargo)}"
+      oninput="data.cargo=this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ .\\-]/g,'')">
+  </div>
+  <div class="field-group">
+    <label>Firma digital / Sello institucional <span class="req">*</span></label>
+    <div class="sign-box ${data.firmado?"signed":""}" onclick="data.firmado=!data.firmado;renderCurrent()">
+      ${data.firmado?"✓ Firmado electrónicamente":"✏️ Haga clic para firmar electrónicamente"}
+    </div>
+  </div>
+  </div>`;
+}
+
+function renderSuccess(){
+  document.getElementById("navBar").style.display="none";
+  const exp="DD-2026-"+String(Math.floor(Math.random()*99999)).padStart(5,"0");
+  const hoy=new Date().toLocaleDateString("es-PA");
+  return `<div class="success-screen">
+    <div class="success-icon">✓</div>
+    <div style="font-size:20px;font-weight:700;color:#065F46;margin-bottom:8px">¡Formulario enviado exitosamente!</div>
+    <div style="font-size:13px;color:#64748B;max-width:380px;margin:0 auto 16px;line-height:1.6">La debida diligencia del proveedor ha sido registrada conforme a la Ley 23 de 2015 y Ley 22 de 2006 de la República de Panamá.</div>
+    <div class="exp-card">
+      <div class="exp-row">📁 <span><strong>N.° de expediente:</strong> ${exp}</span></div>
+      <div class="exp-row">📅 <span><strong>Fecha:</strong> ${hoy}</span></div>
+      <div class="exp-row">🔒 <span><strong>Estado:</strong> <span style="color:#1D9E75;font-weight:600">Aprobado para revisión</span></span></div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="resetForm()">Nuevo formulario</button>
+  </div>`;
+}
+
+function resetForm(){
+  cur=0;
+  data={razonSocial:"",ruc:"",tipoPers:"",pais:"",fechaVer:"",repLegal:"",cedula:"",
+    actividad:"",ciiu:"",descripcion:"",beneficiario:"",
+    listas:{ofac:"",onu:"",interpol:"",inhabilitados:""},
+    pep:"",gafi:"",monto:"",nivelRiesgo:"",observaciones:"",
+    docs:{cert:false,ruc2:false,ced2:false,benef:false,estados:false},
+    docsFiles:{cert:null,ruc2:null,ced2:null,benef:null,estados:null},
+    analista:"",fechaAnalisis:"",cargo:"",firmado:false};
+  document.getElementById("navBar").style.display="";
+  renderAll();
+}
+
+function validate(){
+  const a=[];
+  if(cur===0){
+    if(!data.razonSocial.trim())a.push("Razón social o nombre legal es requerido");
+    if(!data.ruc.trim())a.push("RUC / N.° de identificación fiscal es requerido");
+    if(!data.tipoPers)a.push("Tipo de persona es requerido");
+    if(!data.pais)a.push("País de constitución es requerido");
+    if(!data.fechaVer)a.push("Fecha de verificación es requerida");
+    if(!data.repLegal.trim())a.push("Representante legal es requerido");
+    if(!data.cedula.trim())a.push("N.° de cédula / pasaporte es requerido");
+  }else if(cur===1){
+    if(!data.actividad)a.push("Actividad económica principal es requerida");
+    if(!data.descripcion.trim())a.push("Descripción del bien o servicio es requerida");
+    if(!data.beneficiario.trim())a.push("Beneficiario final es requerido");
+  }else if(cur===2){
+    if(Object.values(data.listas).some(v=>v===""))a.push("Debe registrar el resultado de todas las listas restrictivas");
+  }else if(cur===3){
+    if(!data.gafi)a.push("Indique si opera en país de alto riesgo según GAFI");
+    if(!data.pep)a.push("Indique si el proveedor es Persona Expuesta Políticamente (PEP)");
+    if(!data.monto)a.push("Monto estimado anual del contrato es requerido");
+    if(!data.nivelRiesgo)a.push("Nivel de riesgo calculado es requerido");
+  }else if(cur===4){
+    const falt=DOCS.filter(d=>!data.docs[d.key]).map(d=>d.label.split("(")[0].trim());
+    if(falt.length)a.push("Documentos pendientes: "+falt.join(", "));
+  }else if(cur===5){
+    if(!data.analista.trim())a.push("Nombre del analista responsable es requerido");
+    if(!data.fechaAnalisis)a.push("Fecha del análisis es requerida");
+    if(!data.cargo.trim())a.push("Cargo del analista es requerido");
+    if(!data.firmado)a.push("Se requiere la firma digital del analista");
+  }
+  return a;
+}
+
+function showAlert(msgs){
+  const box=document.getElementById("alertBox");
+  if(!msgs.length){box.className="alert-box";return;}
+  box.className="alert-box show";
+  box.innerHTML="<strong>Por favor complete los campos requeridos:</strong><ul>"+msgs.map(m=>`<li>${m}</li>`).join("")+"</ul>";
+  box.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+function renderCurrent(){
+  const fns=[renderStep1,renderStep2,renderStep3,renderStep4,renderStep5,renderStep6];
+  document.getElementById("wizardContent").innerHTML=fns[cur]();
+}
+function renderAll(){
+  renderSteps();renderDots();renderNav();renderCurrent();showAlert([]);
+}
+function nextStep(){
+  const errs=validate();
+  if(errs.length){showAlert(errs);return;}
+  showAlert([]);
+  if(cur===5){document.getElementById("wizardContent").innerHTML=renderSuccess();renderSteps();renderDots();return;}
+  cur++;renderAll();
+  document.querySelector(".page-wrapper").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function prevStep(){if(cur===0)return;showAlert([]);cur--;renderAll();}
+function e(s){return(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+
+renderAll();
+</script>
+</body>
+</html>

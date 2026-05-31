@@ -1,0 +1,28 @@
+{
+  "name": "serp-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "lint": "bunx eslint .",
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bunx vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.10",
+    "postgres": "^3.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.12",
+    "@types/node": "^22.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.14.0",
+    "@typescript-eslint/parser": "^8.14.0",
+    "eslint": "^8.57.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

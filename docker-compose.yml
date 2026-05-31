@@ -1,0 +1,46 @@
+name: proyecto-serp
+
+services:
+  db:
+    image: postgres:16
+    container_name: proyecto-serp-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: serp
+      POSTGRES_USER: serp
+      POSTGRES_PASSWORD: serp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+  backend:
+    build:
+      context: ./backend
+    container_name: proyecto-serp-backend
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://serp:serp@db:5432/serp
+      JWT_SECRET: serp-dev-secret
+      JWT_EXPIRES_IN: 8h
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: proyecto-serp-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
