@@ -25,6 +25,8 @@ const STEP_TITLES = [
 
 const FORM_STORAGE_KEY = "serp.formulario.v1";
 const FORM_STORAGE_VERSION = 2;
+const API_BASE =
+  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:3000";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -62,6 +64,7 @@ export function App() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmittingToApi, setIsSubmittingToApi] = useState(false);
 
   const completion = useMemo(() => ((currentStep + 1) / 6) * 100, [currentStep]);
 
@@ -195,15 +198,41 @@ export function App() {
 
     setErrors([]);
     setIsSubmitting(true);
+    setIsSubmittingToApi(true);
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      const payload = {
+        proveedor: {
+          razonSocial: wizardData.proveedor.razonSocial,
+          ruc: wizardData.proveedor.ruc,
+          tipoPersona: wizardData.proveedor.tipoPersona,
+          paisOrigen: wizardData.proveedor.paisOrigen,
+          representanteLegal: wizardData.proveedor.representanteLegal,
+          documentoIdentidad: wizardData.proveedor.documentoIdentidad
+        },
+        datos: wizardData
+      };
+
+      const response = await fetch(`${API_BASE}/api/public/formulario`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(data.message ?? "No fue posible enviar el formulario");
+      }
+
       setSubmitted(true);
       setStatusMessage("Formulario enviado correctamente.");
     } catch (error) {
       setErrors([error instanceof Error ? error.message : "No fue posible finalizar el formulario"]);
     } finally {
       setIsSubmitting(false);
+      setIsSubmittingToApi(false);
     }
   };
 
@@ -368,7 +397,11 @@ export function App() {
             </button>
           ) : (
             <button type="button" className="btn primary" onClick={() => void submitForm()} disabled={isSubmitting}>
-              {isSubmitting ? "Procesando..." : "Enviar formulario"}
+              {isSubmitting
+                ? isSubmittingToApi
+                  ? "Enviando a plataforma..."
+                  : "Procesando..."
+                : "Enviar formulario"}
             </button>
           )}
         </footer>

@@ -106,3 +106,17 @@ VALUES
   ('Analista SERP', 'analista@serp.local', 'analista123', 'analista'),
   ('Oficial Cumplimiento', 'oficial@serp.local', 'oficial123', 'oficial_cumplimiento')
 ON CONFLICT (email) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_formulario_updated_at ON formulario_evaluacion;
+CREATE TRIGGER trg_formulario_updated_at
+BEFORE UPDATE ON formulario_evaluacion
+FOR EACH ROW
+EXECUTE FUNCTION set_updated_at();

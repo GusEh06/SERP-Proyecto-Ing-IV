@@ -8,6 +8,120 @@ import { writeAuditLog } from "../services/audit.service";
 
 export const formRoute = new Hono();
 
+async function createFormularioRecord(input: {
+  proveedor: {
+    razonSocial: string;
+    ruc: string;
+    tipoPersona: string;
+    paisOrigen: string;
+    representanteLegal: string;
+    documentoIdentidad: string;
+  };
+  datos: unknown;
+}) {
+  const [proveedorRow] = await sql<{ id: number }[]>`
+    INSERT INTO proveedor (razon_social, ruc, tipo_persona, pais_origen, rep_legal, doc_identidad)
+    VALUES (
+      ${input.proveedor.razonSocial},
+      ${input.proveedor.ruc},
+      ${input.proveedor.tipoPersona},
+      ${input.proveedor.paisOrigen},
+      ${input.proveedor.representanteLegal},
+      ${input.proveedor.documentoIdentidad}
+    )
+    RETURNING id
+  `;
+
+  const [formulario] = await sql<{ id: number; estado: string; paso_actual: number }[]>`
+    INSERT INTO formulario_evaluacion (proveedor_id, datos_json)
+    VALUES (${proveedorRow.id}, ${JSON.stringify(input.datos)}::jsonb)
+    RETURNING id, estado, paso_actual
+  `;
+
+  return {
+    proveedorId: proveedorRow.id,
+    id: formulario.id,
+    estado: formulario.estado,
+    pasoActual: formulario.paso_actual
+  };
+}
+
+function parseAmountFromRange(range: string | undefined): number {
+  if (!range) return 0;
+  if (range === "+500k") return 500001;
+  if (range === "100k-500k") return 100000;
+  if (range === "25k-100k") return 25001;
+  if (range === "5k-25k") return 5000;
+  return 0;
+}
+
+function hasRestrictiveListMatch(listas: unknown): boolean {
+  if (!listas || typeof listas !== "object") return false;
+  return Object.values(listas as Record<string, unknown>).some((value) => value === "si");
+}
+
+formRoute.post("/public/formulario", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  const parsed = createFormularioSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json({ message: "Bad request", issues: parsed.error.issues }, 400);
+  }
+
+  const created = await createFormularioRecord({
+    proveedor: parsed.data.proveedor,
+    datos: parsed.data.datos
+  });
+
+  const datos = parsed.data.datos as {
+    riesgo?: {
+      esPep?: "si" | "no" | "";
+      esPaisGafi?: "si" | "no" | "";
+      montoRango?: string;
+    };
+    listas?: Record<string, string>;
+  };
+
+  const riskInput = {
+    esPep: datos.riesgo?.esPep === "si",
+    esPaisGafi: datos.riesgo?.esPaisGafi === "si",
+    montoAnualUsd: parseAmountFromRange(datos.riesgo?.montoRango),
+    coincidenciaLista: hasRestrictiveListMatch(datos.listas)
+  };
+
+  const risk = calculateRisk(riskInput);
+
+  await sql`
+    INSERT INTO evaluacion_riesgo (formulario_id, puntaje_total, nivel_riesgo, es_pep, es_pais_gafi, monto_rango)
+    VALUES (
+      ${created.id},
+      ${risk.score},
+      ${risk.level},
+      ${riskInput.esPep},
+      ${riskInput.esPaisGafi},
+      ${datos.riesgo?.montoRango ?? ''}
+    )
+    ON CONFLICT (formulario_id)
+    DO UPDATE SET
+      puntaje_total = EXCLUDED.puntaje_total,
+      nivel_riesgo = EXCLUDED.nivel_riesgo,
+      es_pep = EXCLUDED.es_pep,
+      es_pais_gafi = EXCLUDED.es_pais_gafi,
+      monto_rango = EXCLUDED.monto_rango
+  `;
+
+  return c.json(
+    {
+      ...created,
+      evaluacion: {
+        puntaje: risk.score,
+        nivelRiesgo: risk.level
+      }
+    },
+    201
+  );
+});
+
 formRoute.use("*", authMiddleware);
 
 formRoute.post(
@@ -29,26 +143,10 @@ formRoute.post(
       return c.json({ message: "Bad request", issues: parsed.error.issues }, 400);
     }
 
-    const proveedor = parsed.data.proveedor;
-
-    const [proveedorRow] = await sql<{ id: number }[]>`
-      INSERT INTO proveedor (razon_social, ruc, tipo_persona, pais_origen, rep_legal, doc_identidad)
-      VALUES (
-        ${proveedor.razonSocial},
-        ${proveedor.ruc},
-        ${proveedor.tipoPersona},
-        ${proveedor.paisOrigen},
-        ${proveedor.representanteLegal},
-        ${proveedor.documentoIdentidad}
-      )
-      RETURNING id
-    `;
-
-    const [formulario] = await sql<{ id: number; estado: string; paso_actual: number }[]>`
-      INSERT INTO formulario_evaluacion (proveedor_id, datos_json)
-      VALUES (${proveedorRow.id}, ${JSON.stringify(parsed.data.datos)}::jsonb)
-      RETURNING id, estado, paso_actual
-    `;
+    const formulario = await createFormularioRecord({
+      proveedor: parsed.data.proveedor,
+      datos: parsed.data.datos
+    });
 
     await writeAuditLog({
       usuarioId: user.id,
@@ -63,8 +161,8 @@ formRoute.post(
       {
         id: formulario.id,
         estado: formulario.estado,
-        pasoActual: formulario.paso_actual,
-        proveedorId: proveedorRow.id
+        pasoActual: formulario.pasoActual,
+        proveedorId: formulario.proveedorId
       },
       201
     );
