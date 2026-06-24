@@ -1,5 +1,6 @@
 import type { Context, Next } from "hono";
 import { verify } from "hono/jwt";
+import { getCookie } from "hono/cookie";
 import { config } from "../config";
 import type { UserRole } from "../types";
 
@@ -11,10 +12,19 @@ export interface AuthContextUser {
 }
 
 export async function authMiddleware(c: Context, next: Next) {
-  const authHeader = c.req.header("authorization") ?? "";
-  const [scheme, token] = authHeader.split(" ");
+  let token: string | undefined;
 
-  if (scheme !== "Bearer" || !token) {
+  const authHeader = c.req.header("authorization") ?? "";
+  const [scheme, bearerToken] = authHeader.split(" ");
+  if (scheme === "Bearer" && bearerToken) {
+    token = bearerToken;
+  }
+
+  if (!token) {
+    token = getCookie(c, "serp_token");
+  }
+
+  if (!token) {
     return c.json({ message: "Unauthorized" }, 401);
   }
 

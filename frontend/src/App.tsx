@@ -5,6 +5,8 @@ import { Step3ListasRestrictivas } from "./components/wizard/Step3ListasRestrict
 import { Step4EvaluacionRiesgo } from "./components/wizard/Step4EvaluacionRiesgo";
 import { Step5Documentos } from "./components/wizard/Step5Documentos";
 import { Step6Firma } from "./components/wizard/Step6Firma";
+import { Dashboard } from "./components/Dashboard";
+import { Login } from "./components/Login";
 import type { WizardData } from "./types";
 import { initialWizardData } from "./types";
 import { validateStep1 } from "./validation/validateStep1";
@@ -13,6 +15,13 @@ import { validateStep3 } from "./validation/validateStep3";
 import { validateStep4 } from "./validation/validateStep4";
 import { validateStep5 } from "./validation/validateStep5";
 import { validateStep6 } from "./validation/validateStep6";
+
+interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
 
 const STEP_TITLES = [
   "Identificacion del proveedor",
@@ -57,6 +66,9 @@ function normalizeWizardData(raw: unknown): WizardData {
 }
 
 export function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [currentView, setCurrentView] = useState<"wizard" | "dashboard">("wizard");
   const [currentStep, setCurrentStep] = useState(0);
   const [wizardData, setWizardData] = useState<WizardData>(initialWizardData);
   const [errors, setErrors] = useState<string[]>([]);
@@ -67,6 +79,50 @@ export function App() {
   const [isSubmittingToApi, setIsSubmittingToApi] = useState(false);
 
   const completion = useMemo(() => ((currentStep + 1) / 6) * 100, [currentStep]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/auth/me`, { credentials: "include" })
+      .then((res) => {
+        if (res.ok) return res.json();
+        return null;
+      })
+      .then((data) => {
+        if (data?.user) setUser(data.user);
+      })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  const handleLogout = async () => {
+    await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" });
+    setUser(null);
+    setCurrentView("wizard");
+  };
+
+  const renderNav = (active: "wizard" | "dashboard") => (
+    <nav className="nav-bar">
+      <span className="nav-brand">SERP</span>
+      <div className="nav-links">
+        <button
+          type="button"
+          className={`nav-link ${active === "wizard" ? "active" : ""}`}
+          onClick={() => setCurrentView("wizard")}
+        >
+          Formulario
+        </button>
+        <button
+          type="button"
+          className={`nav-link ${active === "dashboard" ? "active" : ""}`}
+          onClick={() => setCurrentView("dashboard")}
+        >
+          Dashboard
+        </button>
+        <button type="button" className="btn ghost" onClick={() => void handleLogout()}>
+          Cerrar sesion
+        </button>
+      </div>
+    </nav>
+  );
 
   useEffect(() => {
     try {
@@ -236,9 +292,23 @@ export function App() {
     }
   };
 
+  if (!authChecked) {
+    return (
+      <main className="page">
+        <p style={{ color: "var(--muted)", textAlign: "center", padding: "4rem" }}>Cargando...</p>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return <Login onLogin={(u) => setUser(u)} />;
+  }
+
   if (submitted) {
     return (
       <main className="page">
+        {renderNav("wizard")}
+
         <header className="hero">
           <h1>Formulario SERP</h1>
           <p>Registro de debida diligencia AML/CFT para proveedores.</p>
@@ -268,8 +338,27 @@ export function App() {
     );
   }
 
+  if (currentView === "dashboard") {
+    return (
+      <main className="page">
+        {renderNav("dashboard")}
+
+        <header className="hero compact">
+          <h1>Dashboard SERP</h1>
+          <div className="hero-meta">
+            <span>Metricas de evaluacion de proveedores</span>
+          </div>
+        </header>
+
+        <Dashboard />
+      </main>
+    );
+  }
+
   return (
     <main className="page">
+      {renderNav("wizard")}
+
       <header className="hero compact">
         <h1>Formulario SERP</h1>
         <div className="hero-meta">

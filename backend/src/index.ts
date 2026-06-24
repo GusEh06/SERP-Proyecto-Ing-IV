@@ -5,19 +5,22 @@ import { config } from "./config";
 import { runMigrations } from "./db/migrate";
 import { authRoute } from "./routes/auth.route";
 import { formRoute } from "./routes/form.route";
+import { dashboardRoute } from "./routes/dashboard.route";
 
 const app = new Hono();
 
 app.use(
   "*",
   cors({
-    origin: config.corsOrigin
+    origin: config.corsOrigin,
+    credentials: true
   })
 );
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 app.route("/auth", authRoute);
 app.route("/api", formRoute);
+app.route("/api", dashboardRoute);
 
 async function bootstrap() {
   await runMigrations();
