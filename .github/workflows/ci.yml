@@ -9,6 +9,24 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: serp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres@localhost:5432/serp
+      JWT_SECRET: test-secret-for-integration
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +47,9 @@ jobs:
       - name: Backend typecheck
         working-directory: backend
         run: bun run typecheck
+
+      - name: Wait for PostgreSQL
+        run: until pg_isready -h localhost -p 5432; do sleep 1; done
 
       - name: Backend tests
         working-directory: backend

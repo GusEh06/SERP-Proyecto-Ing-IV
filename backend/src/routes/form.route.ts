@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { authMiddleware } from "../middleware/auth";
 import { requireRoles } from "../middleware/rbac";
 import { sql } from "../db/client";
@@ -7,6 +8,14 @@ import { calculateRisk } from "../services/scoring.service";
 import { writeAuditLog } from "../services/audit.service";
 
 export const formRoute = new Hono();
+
+function getClientIp(c: Context): string | undefined {
+  const forwarded = c.req.header("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  return c.req.header("x-real-ip") ?? undefined;
+}
 
 async function createFormularioRecord(input: {
   proveedor: {
@@ -61,65 +70,97 @@ function hasRestrictiveListMatch(listas: unknown): boolean {
 }
 
 formRoute.post("/public/formulario", async (c) => {
+  const ip = getClientIp(c);
+
   const body = await c.req.json().catch(() => null);
   const parsed = createFormularioSchema.safeParse(body);
 
   if (!parsed.success) {
+    await writeAuditLog({
+      usuarioId: 0,
+      rol: "sistema",
+      accion: "POST /api/public/formulario",
+      recursoTipo: "formulario_evaluacion",
+      resultado: "fallo",
+      ipAddress: ip
+    });
     return c.json({ message: "Bad request", issues: parsed.error.issues }, 400);
   }
 
-  const created = await createFormularioRecord({
-    proveedor: parsed.data.proveedor,
-    datos: parsed.data.datos
-  });
+  try {
+    const created = await createFormularioRecord({
+      proveedor: parsed.data.proveedor,
+      datos: parsed.data.datos
+    });
 
-  const datos = parsed.data.datos as {
-    riesgo?: {
-      esPep?: "si" | "no" | "";
-      esPaisGafi?: "si" | "no" | "";
-      montoRango?: string;
+    const datos = parsed.data.datos as {
+      riesgo?: {
+        esPep?: "si" | "no" | "";
+        esPaisGafi?: "si" | "no" | "";
+        montoRango?: string;
+      };
+      listas?: Record<string, string>;
     };
-    listas?: Record<string, string>;
-  };
 
-  const riskInput = {
-    esPep: datos.riesgo?.esPep === "si",
-    esPaisGafi: datos.riesgo?.esPaisGafi === "si",
-    montoAnualUsd: parseAmountFromRange(datos.riesgo?.montoRango),
-    coincidenciaLista: hasRestrictiveListMatch(datos.listas)
-  };
+    const riskInput = {
+      esPep: datos.riesgo?.esPep === "si",
+      esPaisGafi: datos.riesgo?.esPaisGafi === "si",
+      montoAnualUsd: parseAmountFromRange(datos.riesgo?.montoRango),
+      coincidenciaLista: hasRestrictiveListMatch(datos.listas)
+    };
 
-  const risk = calculateRisk(riskInput);
+    const risk = calculateRisk(riskInput);
 
-  await sql`
-    INSERT INTO evaluacion_riesgo (formulario_id, puntaje_total, nivel_riesgo, es_pep, es_pais_gafi, monto_rango)
-    VALUES (
-      ${created.id},
-      ${risk.score},
-      ${risk.level},
-      ${riskInput.esPep},
-      ${riskInput.esPaisGafi},
-      ${datos.riesgo?.montoRango ?? ''}
-    )
-    ON CONFLICT (formulario_id)
-    DO UPDATE SET
-      puntaje_total = EXCLUDED.puntaje_total,
-      nivel_riesgo = EXCLUDED.nivel_riesgo,
-      es_pep = EXCLUDED.es_pep,
-      es_pais_gafi = EXCLUDED.es_pais_gafi,
-      monto_rango = EXCLUDED.monto_rango
-  `;
+    await sql`
+      INSERT INTO evaluacion_riesgo (formulario_id, puntaje_total, nivel_riesgo, es_pep, es_pais_gafi, monto_rango)
+      VALUES (
+        ${created.id},
+        ${risk.score},
+        ${risk.level},
+        ${riskInput.esPep},
+        ${riskInput.esPaisGafi},
+        ${datos.riesgo?.montoRango ?? ''}
+      )
+      ON CONFLICT (formulario_id)
+      DO UPDATE SET
+        puntaje_total = EXCLUDED.puntaje_total,
+        nivel_riesgo = EXCLUDED.nivel_riesgo,
+        es_pep = EXCLUDED.es_pep,
+        es_pais_gafi = EXCLUDED.es_pais_gafi,
+        monto_rango = EXCLUDED.monto_rango
+    `;
 
-  return c.json(
-    {
-      ...created,
-      evaluacion: {
-        puntaje: risk.score,
-        nivelRiesgo: risk.level
-      }
-    },
-    201
-  );
+    await writeAuditLog({
+      usuarioId: 0,
+      rol: "sistema",
+      accion: "POST /api/public/formulario",
+      recursoTipo: "formulario_evaluacion",
+      recursoId: created.id,
+      resultado: "exito",
+      ipAddress: ip
+    });
+
+    return c.json(
+      {
+        ...created,
+        evaluacion: {
+          puntaje: risk.score,
+          nivelRiesgo: risk.level
+        }
+      },
+      201
+    );
+  } catch {
+    await writeAuditLog({
+      usuarioId: 0,
+      rol: "sistema",
+      accion: "POST /api/public/formulario",
+      recursoTipo: "formulario_evaluacion",
+      resultado: "fallo",
+      ipAddress: ip
+    });
+    return c.json({ message: "Internal server error" }, 500);
+  }
 });
 
 formRoute.use("*", authMiddleware);

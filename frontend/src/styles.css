@@ -518,3 +518,50 @@ button:focus-visible {
     transform: translateY(0);
   }
 }
+
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(247, 251, 255, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 12px rgba(17, 36, 63, 0.08);
+}
+
+.nav-brand {
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--primary-strong);
+  letter-spacing: 0.04em;
+}
+
+.nav-links {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.nav-link {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  padding: 0.45rem 0.85rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.nav-link:hover {
+  background: rgba(25, 91, 159, 0.08);
+  color: var(--text);
+}
+
+.nav-link.active {
+  background: rgba(25, 91, 159, 0.12);
+  color: var(--primary-strong);
+  border-color: rgba(25, 91, 159, 0.2);
+}

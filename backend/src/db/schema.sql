@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS usuario (
   nombre VARCHAR(140) NOT NULL,
   email VARCHAR(180) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  rol VARCHAR(40) NOT NULL CHECK (rol IN ('proveedor', 'analista', 'oficial_cumplimiento', 'administrador')),
+  rol VARCHAR(40) NOT NULL CHECK (rol IN ('proveedor', 'analista', 'oficial_cumplimiento', 'administrador', 'sistema')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS auditoria_log (
   recurso_tipo VARCHAR(80) NOT NULL,
   recurso_id BIGINT,
   resultado VARCHAR(20) NOT NULL CHECK (resultado IN ('exito', 'fallo')),
+  ip_address VARCHAR(45),
   timestamp_utc TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -99,12 +100,18 @@ VALUES
   ('PANAMACOMPRA_INHABILITADOS', 'inhabilitados', 'Registro de inhabilitados de contrataciones publicas')
 ON CONFLICT (nombre) DO NOTHING;
 
+INSERT INTO usuario (id, nombre, email, password_hash, rol)
+OVERRIDING SYSTEM VALUE
+VALUES
+  (0, 'Sistema SERP', 'sistema@serp.local', '', 'sistema')
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO usuario (nombre, email, password_hash, rol)
 VALUES
-  ('Proveedor Demo', 'proveedor@serp.local', 'proveedor123', 'proveedor'),
-  ('Admin SERP', 'admin@serp.local', 'admin123', 'administrador'),
-  ('Analista SERP', 'analista@serp.local', 'analista123', 'analista'),
-  ('Oficial Cumplimiento', 'oficial@serp.local', 'oficial123', 'oficial_cumplimiento')
+  ('Proveedor Demo', 'proveedor@serp.local', '$2b$10$IDLjoHJFBJibnOUcopXncOrn1uhcEKBtdNRmFHIw7b7oWW2XWQ/sW', 'proveedor'),
+  ('Admin SERP', 'admin@serp.local', '$2b$10$tigyNK4V475OqZ1fENgaU.L3X9R5rjdJsaHpaLTffGHAjU1BmcNmG', 'administrador'),
+  ('Analista SERP', 'analista@serp.local', '$2b$10$Y11qQEbW5bK7KQAtr8F4UO00BS0pPxQB.zCJR2AJja2kVo/XfnytK', 'analista'),
+  ('Oficial Cumplimiento', 'oficial@serp.local', '$2b$10$bOpqJ9pWhlFodwbxY/2KzuE.XfNvGpTa9p8vaI0hk.UCI6jXuOoaK', 'oficial_cumplimiento')
 ON CONFLICT (email) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION set_updated_at()

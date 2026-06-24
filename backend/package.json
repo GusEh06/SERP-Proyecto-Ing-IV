@@ -12,11 +12,13 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "bcrypt": "^6.0.0",
     "hono": "^4.6.10",
     "postgres": "^3.4.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/bun": "^1.1.12",
     "@types/node": "^22.10.1",
     "@typescript-eslint/eslint-plugin": "^8.14.0",
