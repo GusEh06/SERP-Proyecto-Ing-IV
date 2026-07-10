@@ -210,7 +210,7 @@ describe("POST /auth/login", () => {
     expect(setCookie).toBeDefined();
     expect(setCookie).toContain("serp_token=");
     expect(setCookie).toContain("HttpOnly");
-    expect(setCookie).toContain("SameSite=Strict");
+    expect(setCookie).toContain("SameSite=Lax");
   });
 
   it("retorna 401 con credenciales invalidas", async () => {

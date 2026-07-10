@@ -128,8 +128,8 @@ authRoute.post("/login", async (c) => {
 
   setCookie(c, "serp_token", token, {
     httpOnly: true,
-    secure: config.corsOrigin !== "*",
-    sameSite: "Strict",
+    secure: config.cookieSecure,
+    sameSite: config.cookieSameSite,
     path: "/",
     maxAge: config.jwtExpiresInHours * 60 * 60
   });
@@ -147,8 +147,8 @@ authRoute.post("/login", async (c) => {
 authRoute.post("/logout", (c) => {
   deleteCookie(c, "serp_token", {
     httpOnly: true,
-    secure: config.corsOrigin !== "*",
-    sameSite: "Strict",
+    secure: config.cookieSecure,
+    sameSite: config.cookieSameSite,
     path: "/"
   });
   return c.json({ message: "Logged out" });
