@@ -127,3 +127,9 @@ CREATE TRIGGER trg_formulario_updated_at
 BEFORE UPDATE ON formulario_evaluacion
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE auditoria_log ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45);
+
+ALTER TABLE usuario DROP CONSTRAINT IF EXISTS usuario_rol_check;
+ALTER TABLE usuario ADD CONSTRAINT usuario_rol_check
+  CHECK (rol IN ('proveedor', 'analista', 'oficial_cumplimiento', 'administrador', 'sistema'));
