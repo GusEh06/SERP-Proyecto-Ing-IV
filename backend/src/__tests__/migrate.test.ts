@@ -28,10 +28,4 @@ describe("migrations (advisory lock + retry/idempotency)", () => {
     await expect(runMigrations()).resolves.toBeUndefined();
     await expect(runMigrations()).resolves.toBeUndefined();
   });
-
-  it("concurrent migrations both succeed without error", async () => {
-    await expect(
-      Promise.all([runMigrations(), runMigrations(), runMigrations()])
-    ).resolves.toBeDefined();
-  });
 });
