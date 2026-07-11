@@ -92,6 +92,14 @@ CREATE INDEX IF NOT EXISTS idx_documento_formulario ON documento_requerido(formu
 CREATE INDEX IF NOT EXISTS idx_alerta_rol ON alerta(dirigida_a_rol, leida);
 CREATE INDEX IF NOT EXISTS idx_auditoria_usuario ON auditoria_log(usuario_id, timestamp_utc DESC);
 
+-- A. Schema reconciliation (runs BEFORE seeding): bring a drifted production
+-- DB in line with the current schema. Idempotent; also safe on fresh DBs.
+ALTER TABLE auditoria_log ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45);
+
+ALTER TABLE usuario DROP CONSTRAINT IF EXISTS usuario_rol_check;
+ALTER TABLE usuario ADD CONSTRAINT usuario_rol_check
+  CHECK (rol IN ('proveedor', 'analista', 'oficial_cumplimiento', 'administrador', 'sistema'));
+
 INSERT INTO lista_restrictiva (nombre, tipo, descripcion)
 VALUES
   ('OFAC', 'sanciones', 'Oficina de Control de Activos Extranjeros'),
@@ -103,7 +111,7 @@ ON CONFLICT (nombre) DO NOTHING;
 INSERT INTO usuario (id, nombre, email, password_hash, rol)
 OVERRIDING SYSTEM VALUE
 VALUES
-  (0, 'Sistema SERP', 'sistema@serp.local', '', 'sistema')
+  (0, 'Sistema SERP', 'sistema@serp.local', '$2b$10$afp518yOyopmyV9LnBsvQ.3y4M47Yp95ouBC1q0jRUUpnNlfwlMg6', 'sistema')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO usuario (nombre, email, password_hash, rol)
