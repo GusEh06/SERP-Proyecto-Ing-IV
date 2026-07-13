@@ -6,12 +6,11 @@ import { runMigrations } from "../../db/migrate";
 import { authRoute } from "../../routes/auth.route";
 import { formRoute } from "../../routes/form.route";
 import bcrypt from "bcrypt";
+import { config } from "../../config";
 
 const app = new Hono();
 app.route("/auth", authRoute);
 app.route("/api", formRoute);
-
-const TEST_JWT_SECRET = process.env.JWT_SECRET ?? "test-secret-for-integration";
 
 async function createToken(payload: {
   id: number;
@@ -29,7 +28,7 @@ async function createToken(payload: {
       iat: now,
       exp: now + 3600
     },
-    TEST_JWT_SECRET
+    config.jwtSecret
   );
 }
 
@@ -188,6 +187,74 @@ describe("POST /api/public/formulario", () => {
     expect(auditLog).toBeDefined();
     expect(auditLog.usuario_id).toBe("0");
     expect(auditLog.resultado).toBe("fallo");
+  });
+
+  it("acepta tipoPersona 'natural' con cedula/pasaporte en ruc", async () => {
+    const res = await app.request("/api/public/formulario", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildPayload({
+          proveedor: {
+            razonSocial: "Maria Gomez",
+            ruc: "1-2345-6789",
+            tipoPersona: "natural",
+            paisOrigen: "PA",
+            representanteLegal: "Maria Gomez",
+            documentoIdentidad: "1-2345-6789"
+          }
+        })
+      )
+    });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("acepta tipoPersona 'extranjera' con identificacion fiscal extranjera", async () => {
+    const res = await app.request("/api/public/formulario", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildPayload({
+          proveedor: {
+            razonSocial: "Foreign Co LLC",
+            ruc: "E1234567",
+            tipoPersona: "extranjera",
+            paisOrigen: "US",
+            representanteLegal: "John Doe",
+            documentoIdentidad: "E1234567"
+          }
+        })
+      )
+    });
+
+    expect(res.status).toBe(201);
+  });
+
+  it("rechaza 'juridica' con ruc que no cumple formato 0-000-000000", async () => {
+    const res = await app.request("/api/public/formulario", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        buildPayload({
+          proveedor: {
+            ...VALID_PROVEEDOR,
+            ruc: "12345",
+            tipoPersona: "juridica"
+          }
+        })
+      )
+    });
+
+    expect(res.status).toBe(400);
+
+    const body = await res.json();
+    expect(
+      body.issues.some(
+        (i: { path?: (string | number)[] }) =>
+          i.path?.join(".") === "proveedor.ruc"
+      )
+    ).toBe(true);
   });
 });
 
