@@ -278,8 +278,21 @@ export function App() {
       });
 
       if (!response.ok) {
-        const data = (await response.json().catch(() => ({}))) as { message?: string };
-        throw new Error(data.message ?? "No fue posible enviar el formulario");
+        const data = (await response.json().catch(() => ({}))) as {
+          message?: string;
+          issues?: Array<{ path?: (string | number)[]; message?: string }>;
+        };
+        const issueMessages = Array.isArray(data.issues)
+          ? data.issues
+              .map((issue) =>
+                [issue.path?.join("."), issue.message].filter(Boolean).join(": ")
+              )
+              .filter(Boolean)
+          : [];
+        const combined = [data.message, ...issueMessages].filter(Boolean);
+        throw new Error(
+          combined.length > 0 ? combined.join(" | ") : "No fue posible enviar el formulario"
+        );
       }
 
       setSubmitted(true);
